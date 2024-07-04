@@ -179,38 +179,38 @@ export default function Home() {
 
             <div>
                 <h1>network: {JSON.stringify(network)}</h1>
-                <button onClick={getNetwork}>getNetwork</button>
+                <button onClick={getNetwork}>getNetwork-button</button>
             </div>
             <div>
                 <h1>account: {account}</h1>
-                <button onClick={getAccount}>getAccount</button>
+                <button onClick={getAccount}>getAccount-button</button>
             </div>
 
             <div>
 
                 <h1>balanceBNB: {balanceBNB}</h1>
-                <button onClick={getBalanceBNB}>getBalanceBNB</button>
+                <button onClick={getBalanceBNB}>getBalanceBNB-button</button>
 
                 <h1>balanceOfUSDT: {balanceOfUSDT}</h1>
-                <button onClick={getBalanceOfUSDT}>getBalanceOfUSDT</button>
+                <button onClick={getBalanceOfUSDT}>getBalanceOfUSDT-button</button>
 
             </div>
             <div>
                 <h1>allowance:{allowance}</h1>
-                <button onClick={findAllowance}>findAllowance</button>
+                <button onClick={findAllowance}>findAllowance-button</button>
             </div>
 
             <div>
                 <h1>usdtApprove:{approve}</h1>
-                <button onClick={usdtApprove}>usdtApprove</button>
+                <button onClick={usdtApprove}>usdtApprove-button</button>
             </div>
 
             <div>
                 <h1>transfer:{transfer}</h1>
-                <button onClick={transferFrom}>transferFrom</button>
+                <button onClick={transferFrom}>transferFrom-button</button>
 
                 <h1>transfer2:{transfer}</h1>
-                <button onClick={transfer2}>transfer</button>
+                <button onClick={transfer2}>transfer-button</button>
             </div>
         </div>
     );
