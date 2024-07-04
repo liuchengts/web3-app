@@ -1,113 +1,217 @@
-import Image from "next/image";
+'use client'
+import {CUSTOM_ADDRESS, jsonToString, USDT_ADDRESS, Web3Service} from "@/web3/web3";
+import {useState} from "react";
+import {BigNumberish, Contract, formatEther, parseEther, parseUnits} from "ethers";
+// @ts-ignore
+import {Network} from "ethers/src.ts/providers/network";
 
 export default function Home() {
-  return (
-    <main className="flex min-h-screen flex-col items-center justify-between p-24">
-      <div className="z-10 w-full max-w-5xl items-center justify-between font-mono text-sm lg:flex">
-        <p className="fixed left-0 top-0 flex w-full justify-center border-b border-gray-300 bg-gradient-to-b from-zinc-200 pb-6 pt-8 backdrop-blur-2xl dark:border-neutral-800 dark:bg-zinc-800/30 dark:from-inherit lg:static lg:w-auto  lg:rounded-xl lg:border lg:bg-gray-200 lg:p-4 lg:dark:bg-zinc-800/30">
-          Get started by editing&nbsp;
-          <code className="font-mono font-bold">src/app/page.tsx</code>
-        </p>
-        <div className="fixed bottom-0 left-0 flex h-48 w-full items-end justify-center bg-gradient-to-t from-white via-white dark:from-black dark:via-black lg:static lg:size-auto lg:bg-none">
-          <a
-            className="pointer-events-none flex place-items-center gap-2 p-8 lg:pointer-events-auto lg:p-0"
-            href="https://vercel.com?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            By{" "}
-            <Image
-              src="/vercel.svg"
-              alt="Vercel Logo"
-              className="dark:invert"
-              width={100}
-              height={24}
-              priority
-            />
-          </a>
+    // @ts-ignore
+    if (!window.ethereum) {
+        return (<div>没有window.ethereum，请安装钱包插件</div>)
+    }
+    console.log(window.ethereum)
+    // @ts-ignore
+    const web3Service = new Web3Service(window.ethereum);
+    /**
+     *  获取网络
+     */
+    const [network, setNetwork] = useState<Network>();
+
+    function getNetwork() {
+        web3Service?.getNetwork().then(result => {
+            console.log("getNetwork:", JSON.stringify(result))
+            setNetwork(result as Network)
+        });
+    }
+
+    /**
+     * 获取当前账户地址
+     */
+    const [account, setAccount] = useState<string>('');
+
+    function getAccount() {
+        setAccount(web3Service.address!!)
+        console.log("BlockNumber:",web3Service.getBlockNumber())
+        return account
+    }
+
+    /**
+     *  通过web3查询该地址的代币数量
+     */
+    const [balanceBNB, setBalanceBNB] = useState<BigNumberish>(0);
+
+    function getBalanceBNB() {
+        web3Service.getBalance(getAccount()).then((result: BigNumberish) => {
+            console.log("getBalance:", result)
+            setBalanceBNB(formatEther(result))
+        });
+    }
+
+
+    /**
+     *  通过web3查询该地址的代币数量 USDT
+     */
+    const [balanceOfUSDT, setBalanceOfUSDT] = useState<BigNumberish>(0);
+
+    function getBalanceOfUSDT() {
+        const contract: Contract = web3Service.getContract(true)
+        contract.balanceOf(getAccount())
+            // contract.getFunction("balanceOf").staticCall(getAccount())
+            .then((result) => {
+                console.log("USDT balanceOf:", result)
+                setBalanceOfUSDT(formatEther(result))
+            }).catch((error) => {
+            console.error('getBalanceOfUSDT出错:', error);
+        });
+
+    }
+
+    /**
+     * 查询地址对合约对授权额度
+     * @param address
+     */
+    const [allowance, setAllowance] = useState<BigNumberish>(0);
+
+    function findAllowance() {
+        const contract: Contract = web3Service.getContract(true)
+        contract.getFunction("allowance").staticCall(getAccount(), CUSTOM_ADDRESS)
+            .then((result) => {
+                console.log(jsonToString(result))
+                // 格式化成以太币单位
+                setAllowance(formatEther(result))
+            }).catch((error) => {
+            console.error('findAllowance出错:', error);
+        });
+    }
+
+    /**
+     * usdt 授权 给自定义合约
+     * @param address 要授权的地址
+     */
+    const [approve, setApprove] = useState<string>('');
+
+    function usdtApprove() {
+        const contract: Contract = web3Service.getContract(false)
+        const amount = parseEther('90000000000');
+        contract.getFunction("approve").send(CUSTOM_ADDRESS, amount)
+            .then((result) => {
+                console.log(jsonToString(result))
+                // 格式化成以太币单位
+                setApprove(jsonToString(result))
+            }).catch((error) => {
+            console.error('usdtApprove出错:', error);
+        });
+    }
+
+    /**
+     * usdt 转账
+     * @param account from
+     */
+    const [transfer, setTransfer] = useState<string>('');
+
+    // gas不足的问题  https://ethereum.stackexchange.com/questions/100209/estimate-gas-price-with-ethers-js
+    async function transferFrom() {
+        const contract: Contract = web3Service.getContract(false)
+        // 将以太币转为 wei
+        const amount = parseEther("1");
+        console.log("-----:", getAccount(), "  ", CUSTOM_ADDRESS, "   ", amount)
+        // Unable to call estimated gas
+        // const estimateGas = await contract.getFunction("transferFrom").estimateGas(getAccount(), CUSTOM_ADDRESS, amount);
+        // @ts-ignore
+        // const estimateGas = await contract.transferFrom.estimateGas(getAccount(), CUSTOM_ADDRESS, amount);
+        // console.log("estimateGas:", estimateGas)
+        let overrides = {
+            // gasLimit: estimateGas,
+            gasLimit: parseUnits('2', 'gwei'),
+            gasPrice: parseUnits('1', 'gwei'),
+            gas: parseUnits('0.1', 'gwei')
+        };
+        // contract.getFunction("transferFrom").send(getAccount(), CUSTOM_ADDRESS, amount, overrides)
+        // @ts-ignore
+        contract.transferFrom(getAccount(), CUSTOM_ADDRESS, amount, overrides)
+            .then((result) => {
+                setTransfer(jsonToString(result))
+            }).catch((error) => {
+            console.error('transferFrom error:', error);
+        });
+    }
+
+    async function transfer2() {
+        // 将以太币转为 wei
+        const amount = parseEther("0.2");
+        const contract: Contract = web3Service.getContract(false)
+        // @ts-ignore
+        const estimateGas = await contract.transfer.estimateGas(CUSTOM_ADDRESS, amount);
+        let overrides = {
+            gasLimit: estimateGas,
+            gasPrice: parseUnits('1', 'gwei')
+        };
+        // contract.getFunction("transfer").send(CUSTOM_ADDRESS, amount, overrides)
+        // @ts-ignore
+        contract.transfer(CUSTOM_ADDRESS, amount, overrides)
+            .then((result) => {
+                setTransfer(jsonToString(result))
+            }).catch((error) => {
+            console.error('transfer出错:', error);
+        });
+
+
+        // const estimateGas = await web3Service.getGas(CUSTOM_ADDRESS, amount)
+        // console.log("estimateGas:", estimateGas)
+        // let overrides = {
+        //     gasLimit: estimateGas,
+        //     gasPrice: 2000,
+        //     value: amount
+        // };
+        //
+        // web3Service.USDT_CONTRACT_WRITE?.transfer(CUSTOM_ADDRESS, amount, overrides).then((result: any) => {
+        //     setTransfer(jsonToString(result))
+        // });
+    }
+
+    return (
+        <div>
+            {/*<div>*/}
+            {/*    /!*初始化*!/*/}
+            {/*    <Trust globalAccounts={globalAccounts}></Trust>*/}
+            {/*</div>*/}
+
+            <div>
+                <h1>network: {JSON.stringify(network)}</h1>
+                <button onClick={getNetwork}>getNetwork</button>
+            </div>
+            <div>
+                <h1>account: {account}</h1>
+                <button onClick={getAccount}>getAccount</button>
+            </div>
+
+            <div>
+
+                <h1>balanceBNB: {balanceBNB}</h1>
+                <button onClick={getBalanceBNB}>getBalanceBNB</button>
+
+                <h1>balanceOfUSDT: {balanceOfUSDT}</h1>
+                <button onClick={getBalanceOfUSDT}>getBalanceOfUSDT</button>
+
+            </div>
+            <div>
+                <h1>allowance:{allowance}</h1>
+                <button onClick={findAllowance}>findAllowance</button>
+            </div>
+
+            <div>
+                <h1>usdtApprove:{approve}</h1>
+                <button onClick={usdtApprove}>usdtApprove</button>
+            </div>
+
+            <div>
+                <h1>transfer:{transfer}</h1>
+                <button onClick={transferFrom}>transferFrom</button>
+
+                <h1>transfer2:{transfer}</h1>
+                <button onClick={transfer2}>transfer</button>
+            </div>
         </div>
-      </div>
-
-      <div className="relative z-[-1] flex place-items-center before:absolute before:h-[300px] before:w-full before:-translate-x-1/2 before:rounded-full before:bg-gradient-radial before:from-white before:to-transparent before:blur-2xl before:content-[''] after:absolute after:-z-20 after:h-[180px] after:w-full after:translate-x-1/3 after:bg-gradient-conic after:from-sky-200 after:via-blue-200 after:blur-2xl after:content-[''] before:dark:bg-gradient-to-br before:dark:from-transparent before:dark:to-blue-700 before:dark:opacity-10 after:dark:from-sky-900 after:dark:via-[#0141ff] after:dark:opacity-40 sm:before:w-[480px] sm:after:w-[240px] before:lg:h-[360px]">
-        <Image
-          className="relative dark:drop-shadow-[0_0_0.3rem_#ffffff70] dark:invert"
-          src="/next.svg"
-          alt="Next.js Logo"
-          width={180}
-          height={37}
-          priority
-        />
-      </div>
-
-      <div className="mb-32 grid text-center lg:mb-0 lg:w-full lg:max-w-5xl lg:grid-cols-4 lg:text-left">
-        <a
-          href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className="mb-3 text-2xl font-semibold">
-            Docs{" "}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className="m-0 max-w-[30ch] text-sm opacity-50">
-            Find in-depth information about Next.js features and API.
-          </p>
-        </a>
-
-        <a
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className="mb-3 text-2xl font-semibold">
-            Learn{" "}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className="m-0 max-w-[30ch] text-sm opacity-50">
-            Learn about Next.js in an interactive course with&nbsp;quizzes!
-          </p>
-        </a>
-
-        <a
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className="mb-3 text-2xl font-semibold">
-            Templates{" "}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className="m-0 max-w-[30ch] text-sm opacity-50">
-            Explore starter templates for Next.js.
-          </p>
-        </a>
-
-        <a
-          href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className="mb-3 text-2xl font-semibold">
-            Deploy{" "}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className="m-0 max-w-[30ch] text-balance text-sm opacity-50">
-            Instantly deploy your Next.js site to a shareable URL with Vercel.
-          </p>
-        </a>
-      </div>
-    </main>
-  );
+    );
 }
